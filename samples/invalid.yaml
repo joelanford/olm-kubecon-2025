@@ -1,0 +1,6 @@
+apiVersion: webhook.operators.coreos.io/v1
+kind: WebhookTest
+metadata:
+  name: invalid
+spec:
+  valid: false
