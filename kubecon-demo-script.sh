@@ -1,38 +1,37 @@
 #!/usr/bin/env bash
 
 #
-# Welcome to the catalogd demo
+# Welcome to the kubecon-NA 2025 demo
 #
 trap "trap - SIGTERM && kill -- -$$" SIGINT SIGTERM EXIT
 
-
-kind delete clusters $(kind get clusters)
-kind create cluster
-kubectl cluster-info --context kind-kind
+# assumes it's running from a local clone of operator-framework/operator-controller
+make -C ../../operator-framework/operator-controller/ run-experimental
 sleep 10
-
-# use the install script from the latest github release
-curl -L -s https://github.com/operator-framework/operator-controller/releases/latest/download/install.sh | bash
 
 # inspect crds (clustercatalog)
 kubectl get crds -A
 kubectl get clustercatalog -A
 
-echo "... checking catalogd controller is available"
+echo "checking catalogd controller is available"
 kubectl wait --for=condition=Available -n olmv1-system deploy/catalogd-controller-manager --timeout=1m
+
+echo "installing demo ClusterCatalog"
+kubectl apply -f manifests/00_clustercatalog.yaml
 echo "... checking clustercatalog is serving"
-kubectl wait --for=condition=Serving clustercatalog/operatorhubio --timeout=60s
+kubectl wait --for=condition=Serving clustercatalog/olm-kubecon2025-demo --timeout=60s
 echo "... checking clustercatalog is finished unpacking"
-kubectl wait --for=condition=Progressing=True clustercatalog/operatorhubio --timeout=60s
+kubectl wait --for=condition=Progressing=True clustercatalog/olm-kubecon2025-demo --timeout=60s
 
-# port forward the catalogd-service service to interact with the HTTP server serving catalog contents
-(kubectl -n olmv1-system port-forward svc/catalogd-service 8081:443)&
+echo "installing demo namespaces (install|watch), service accounts"
+kubectl apply -f manifests/01_clusterextension-setup.yaml
 
-sleep 3
+echo "installing demo ClusterExtension, pinned to v0.0.1, watching namespace 'demo'"
+kubectl apply -f manifests/02_clusterextension-v0.0.1.yaml
 
-# check what 'packages' are available in this catalog
-curl -k https://localhost:8081/catalogs/operatorhubio/api/v1/all | jq -s '.[] | select(.schema == "olm.package") | .name'
-# check what channels are included in the wavefront package
-curl -k https://localhost:8081/catalogs/operatorhubio/api/v1/all | jq -s '.[] | select(.schema == "olm.channel") | select(.package == "wavefront") | .name'
-# check what bundles are included in the wavefront package
-curl -k https://localhost:8081/catalogs/operatorhubio/api/v1/all | jq -s '.[] | select(.schema == "olm.bundle") | select(.package == "wavefront") | .name'
+echo "upgrading demo ClusterExtension to v0.0.2"
+kubectl apply -f manifests/03_clusterextension_v0.0.2-broken.yaml
+
+echo " ... oops!  We forgot to remove the watch namespace"
+kubectl apply -f manifests/04_clusterextension_v0.0.2-fixed.yaml
+
