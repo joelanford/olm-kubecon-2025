@@ -9,29 +9,54 @@ trap "trap - SIGTERM && kill -- -$$" SIGINT SIGTERM EXIT
 make -C ../../operator-framework/operator-controller/ run-experimental
 sleep 10
 
-# inspect crds (clustercatalog)
-kubectl get crds -A
-kubectl get clustercatalog -A
+# waiting for operator-controller deployment to complete
+kubectl rollout status -n olmv1-system deployment/operator-controller-controller-manager
 
-echo "checking catalogd controller is available"
+# checking catalogd controller is available
 kubectl wait --for=condition=Available -n olmv1-system deploy/catalogd-controller-manager --timeout=1m
 
-echo "installing demo ClusterCatalog"
+# inspect crds (clustercatalog)
+kubectl get crds -A
+
+# installing demo ClusterCatalog
 kubectl apply -f manifests/00_clustercatalog.yaml
-echo "... checking clustercatalog is serving"
+
+#  checking clustercatalog is serving
 kubectl wait --for=condition=Serving clustercatalog/olm-kubecon2025-demo --timeout=60s
-echo "... checking clustercatalog is finished unpacking"
+#  checking clustercatalog is finished unpacking
 kubectl wait --for=condition=Progressing=True clustercatalog/olm-kubecon2025-demo --timeout=60s
 
-echo "installing demo namespaces (install|watch), service accounts"
+# inspecting the demo catalog
+kubectl describe clustercatalog olm-kubecon2025-demo
+
+# installing demo namespaces (install|watch), service accounts
 kubectl apply -f manifests/01_clusterextension-setup.yaml
 
-echo "installing demo ClusterExtension, pinned to v0.0.1, watching namespace 'demo'"
+# installing demo ClusterExtension, pinned to v0.0.1, watching namespace 'demo'
 kubectl apply -f manifests/02_clusterextension-v0.0.1.yaml
 
-echo "upgrading demo ClusterExtension to v0.0.2"
-kubectl apply -f manifests/03_clusterextension_v0.0.2-broken.yaml
+# waiting for demo-operator.v0.0.1 to report Installed=True
+kubectl wait --for=condition=Installed clusterextension/demo-operator --timeout=180s
 
-echo " ... oops!  We forgot to remove the watch namespace"
-kubectl apply -f manifests/04_clusterextension_v0.0.2-fixed.yaml
+# checking status on demo-operator.v0.0.1
+kubectl get clusterextensions.olm.operatorframework.io demo-operator -o yaml | yq '.spec'
+kubectl get clusterextensions.olm.operatorframework.io demo-operator -o yaml | yq '.status.conditions[]| select(.type == "Installed")'
+
+# upgrading demo ClusterExtension to v0.0.2, with a broken manifest
+kubectl apply -f manifests/03_clusterextension-v0.0.2-broken.yaml
+sleep 5
+kubectl get clusterextension demo-operator -o yaml | yq '.status.conditions[] | select(.type=="Progressing")'
+
+#  ... oops!  We forgot to remove the watch namespace!  Fix that
+kubectl apply -f manifests/04_clusterextension-v0.0.2-fixed.yaml
+#  status after demo-operator.v0.0.2 fixed installation
+kubectl wait --for=jsonpath='{.status.install.bundle.name}="demo-operator.v0.0.2"' clusterextension demo-operator --timeout=30s
+kubectl wait --for=condition=Installed clusterextension/demo-operator --timeout=180s
+
+#  ... fixed!
+kubectl get clusterextension demo-operator -o yaml | yq '.status.conditions[] | select(.type=="Installed")'
+
+# final status
+kubectl get clusterextension -A
+
 
