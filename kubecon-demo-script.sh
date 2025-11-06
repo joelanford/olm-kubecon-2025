@@ -87,3 +87,5 @@ kubectl get clusterextensionrevision -A
 # inspecting the diff between two ClusterExtensionRevisions (CERs) and comparing the RBAC
 diff -u --color=always <(kubectl get clusterextensionrevision demo-operator-1 -o yaml | yq e '.spec.phases[] | select(.name=="rbac") | .objects[].object | "\(.kind)/\(.metadata.name) \(.rules | tojson)"' -) <(kubectl get clusterextensionrevision demo-operator-2 -o yaml | yq e '.spec.phases[] | select(.name=="rbac") | .objects[].object | "\(.kind)/\(.metadata.name) \(.rules | tojson)"' -)
 
+# leave data on screen for a moment before looping anew
+sleep 5
