@@ -87,5 +87,18 @@ kubectl get clusterextensionrevision -A
 # inspecting the diff between two ClusterExtensionRevisions (CERs) and comparing the RBAC
 diff -u --color=always <(kubectl get clusterextensionrevision demo-operator-1 -o yaml | yq e '.spec.phases[] | select(.name=="rbac") | .objects[].object | "\(.kind)/\(.metadata.name) \(.rules | tojson)"' -) <(kubectl get clusterextensionrevision demo-operator-2 -o yaml | yq e '.spec.phases[] | select(.name=="rbac") | .objects[].object | "\(.kind)/\(.metadata.name) \(.rules | tojson)"' -)
 
+# uninstall: deleting the ClusterExtension
+kubectl delete clusterextension demo-operator --wait=true --timeout=60s
+
+# confirming that the ClusterExtension resource is gone, error is expected
+kubectl get clusterextension demo-operator
+
+# checking that ClusterExtensionRevisions (CERs) associated with demo-operator were deleted
+kubectl get clusterextensionrevision -A
+
+# checking webhook configurations post-uninstall which should be deleted
+kubectl get validatingwebhookconfigurations.admissionregistration.k8s.io | grep demo-operator
+kubectl get mutatingwebhookconfigurations.admissionregistration.k8s.io | grep demo-operator
+
 # leave data on screen for a moment before looping anew
 sleep 5
