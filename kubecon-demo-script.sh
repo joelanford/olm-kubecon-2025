@@ -5,10 +5,6 @@
 #
 trap "trap - SIGTERM && kill -- -$$" SIGINT SIGTERM EXIT
 
-# assumes it's running from a local clone of operator-framework/operator-controller
-make -C ../../operator-framework/operator-controller/ run-experimental
-sleep 10
-
 # waiting for operator-controller deployment to complete
 kubectl rollout status -n olmv1-system deployment/operator-controller-controller-manager
 
