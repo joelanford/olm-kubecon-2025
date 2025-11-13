@@ -5,22 +5,11 @@
 #
 trap "trap - SIGTERM && kill -- -$$" SIGINT SIGTERM EXIT
 
-# waiting for operator-controller deployment to complete
-kubectl rollout status -n olmv1-system deployment/operator-controller-controller-manager
-
-# checking catalogd controller is available
-kubectl wait --for=condition=Available -n olmv1-system deploy/catalogd-controller-manager --timeout=1m
-
-# inspect crds (clustercatalog)
-kubectl get crds -A
-
 # installing demo ClusterCatalog
 kubectl apply -f manifests/00_clustercatalog.yaml
 
 #  checking clustercatalog is serving
 kubectl wait --for=condition=Serving clustercatalog/olm-kubecon2025-demo --timeout=60s
-#  checking clustercatalog is finished unpacking
-kubectl wait --for=condition=Progressing=True clustercatalog/olm-kubecon2025-demo --timeout=60s
 
 # inspecting the demo catalog
 kubectl describe clustercatalog olm-kubecon2025-demo
@@ -41,6 +30,9 @@ kubectl get clusterextensions.olm.operatorframework.io demo-operator -o yaml | y
 # checking ClusterExtensionRevision (CER) after install
 kubectl get clusterextensionrevision -A
 
+# checking the olm.targetNamespaces annotation of the deployment
+kubectl get deployments.apps -n demo-operator webhook-operator-controller-manager -o jsonpath={.spec.template.metadata.annotations} | jq | grep "olm.targetNamespaces"
+
 # upgrading demo ClusterExtension to v0.0.2, with a broken manifest
 kubectl apply -f manifests/03_clusterextension-v0.0.2-broken.yaml
 sleep 5
@@ -57,19 +49,8 @@ kubectl wait --for=condition=Installed clusterextension/demo-operator --timeout=
 kubectl get clusterextension demo-operator -o yaml | yq '.status.conditions[] | select(.type=="Installed")'
 
 # final status
-kubectl get clusterextension -A
-
-# checking the installed validating webhook configuration
-kubectl get validatingwebhookconfigurations.admissionregistration.k8s.io -A
-
-# checking the installed mutating webhook configuration
-kubectl get mutatingwebhookconfigurations.admissionregistration.k8s.io -A
-
-# inspecting where the validating webhook is running (in-cluster service endpoint)
-kubectl describe validatingwebhookconfigurations.admissionregistration.k8s.io vwebhooktest.kb.io | sed -n '/Service:/,/Port:/p'
-
-# inspecting where the mutating webhook is running (in-cluster service endpoint)
-kubectl describe mutatingwebhookconfiguration mwebhooktest.kb.io | sed -n '/Service:/,/Port:/p'
+kubectl get clusterextension demo-operator
+kubectl get clusterextensionrevisions
 
 # demonstrating webhook behavior: invalid CRs are rejected with an error (expected)
 kubectl apply -f samples/invalid.yaml || true
@@ -77,30 +58,35 @@ kubectl apply -f samples/invalid.yaml || true
 # installing a valid CR which should get accepted and succeed
 kubectl apply -f samples/valid.yaml
 
-# checking ClusterExtensionRevisions (CERs) after upgrade
-kubectl get clusterextensionrevision -A
-
 # inspecting the diff between two ClusterExtensionRevisions (CERs) and comparing the RBAC
 diff -u --color=always <(kubectl get clusterextensionrevision demo-operator-1 -o yaml | yq e '.spec.phases[] | select(.name=="rbac") | .objects[].object | "\(.kind)/\(.metadata.name) \(.rules | tojson)"' -) <(kubectl get clusterextensionrevision demo-operator-2 -o yaml | yq e '.spec.phases[] | select(.name=="rbac") | .objects[].object | "\(.kind)/\(.metadata.name) \(.rules | tojson)"' -)
+
+# checking the installed validating webhook configuration
+kubectl describe validatingwebhookconfigurations.admissionregistration.k8s.io -l olm.operatorframework.io/owner=demo-operator | sed -n '/Ca Bundle:/,/Port:/p'
+
+# checking the installed mutating webhook configuration
+kubectl describe mutatingwebhookconfigurations.admissionregistration.k8s.io -l olm.operatorframework.io/owner=demo-operator | sed -n '/Ca Bundle:/,/Port:/p'
+
+# checking the conversion webhook configuration in the CRD
+kubectl describe crd webhooktests.webhook.operators.coreos.io | sed -n '/Ca Bundle:/,/Port:/p'
+
+# showing the mutation webhook has inserted mutate: true
+kubectl get webhooktests.v1.webhook.operators.coreos.io valid -o yaml
+
+# showing the conversion webhook has moved .spec fields to .spec.conversion
+kubectl get webhooktests.v2.webhook.operators.coreos.io valid -o yaml
+
+# showing the entire ownership tree (requires krew plugin 'tree')
+kubectl tree clusterextensions demo-operator -A
+
+# showing what's installed (requires krew plugin 'get-all')
+kubectl get-all -l olm.operatorframework.io/owner=demo-operator
 
 # uninstall: deleting the ClusterExtension
 kubectl delete clusterextension demo-operator --wait=true --timeout=60s
 
-# confirming that the ClusterExtension resource is gone; "NotFound" error is expected
-kubectl get clusterextension demo-operator
-
-# checking that ClusterExtensionRevisions (CERs) associated with demo-operator were deleted
-kubectl get clusterextensionrevision -A
-
-# checking webhook configurations post-uninstall which should be deleted
-kubectl get validatingwebhookconfigurations.admissionregistration.k8s.io | grep demo-operator
-kubectl get mutatingwebhookconfigurations.admissionregistration.k8s.io | grep demo-operator
-
-# checking if the operator-created ClusterRole has been cleaned up; "NotFound" error is expected
-kubectl get clusterrole webhook-operator-metrics-reader
-
-# checking that the CRD installed by the demo operator is deleted; "NotFound" error is expected
-kubectl get crd webhooktests.webhook.operators.coreos.io 
+# showing that nothing is installed anymore (requires krew plugin 'get-all')
+kubectl get-all -l olm.operatorframework.io/owner=demo-operator
 
 # leave data on screen for a moment before looping anew
 sleep 5

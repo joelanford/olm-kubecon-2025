@@ -1,47 +1,103 @@
-# This is a purpose-build repository to capture the stages and prerequites for the team's presentation to kubecon NA 2025. 
+# OLMv1 KubeCon NA 2025 Demo
 
-# Structure:
+This repository contains the materials and demonstrations for the OLMv1 presentation at KubeCon NA 2025.
 
-## bundles
+## Demo
 
-This directory includes bundle manifests for a couple of versions of a demo operator, to showcase registry+v1 support in OLMv1 for webhooks and SingleNamespace/OwnNamespace InstallModes. 
+![Demo](demo.gif)
 
-containing:
-- demo-operator.v0.0.1 which only supports SingleNamespace/OwnNamespace InstallMode 
-- demo-operator.v0.0.2 which only supports AllNamespaces InstallMode
-- dockerfiles for building the bundle images
+[View on asciinema](https://asciinema.org/a/VFakQTsZN75d6b5oY2ZMvmc0o)
 
-## catalog
+## Overview
 
-This directory contains the File-Based Catalog upgrade graph for the demo-operator package
-(plus the associated catalog.Dockerfile to build the catalog image)
+This demo showcases feature functionality added since the 1.0 release of OLMv1, including:
 
-## generate-asciidemo.sh
+- **SingleNamespace/OwnNamespace InstallMode** support for registry+v1 bundles
+- **Webhook support** for registry+v1 bundles
+- **Phased installation/upgrade** approaches using ClusterExtensionRevision API
 
-A script to process the kubecon-demo-script.sh into an asciicast
+## Repository Structure
 
-## kubecon-demo-script.sh
+### `bundles/`
 
-A script to demonstrate some feature functionality since our 1.0 release of OLMv1, including
-- SingleNamespace/OwnNamespace InstallMode support for registry+v1 bundles
-- Webhook support for registry+v1 bundles
-- phased installation / upgrade approaches using ClusterExtensionRevision API
+Bundle manifests for multiple versions of a demo operator, showcasing registry+v1 support in OLMv1 for webhooks and SingleNamespace/OwnNamespace InstallModes.
 
-## manifests
+Contains:
+- `demo-operator.v0.0.1` - Supports only SingleNamespace/OwnNamespace InstallMode
+- `demo-operator.v0.0.2` - Supports only AllNamespaces InstallMode
+- Dockerfiles for building the bundle images
 
-Containing manifests for navigating the demo execution
-- 00_clustercatalog.yaml: stamping out the ClusterCatalog manifest containing the demo-operator package
-- 01_clusterextension-setup.yaml: stamping out the Namespaces, ServiceAccounts, and support resources
-- 02_clusterextension-v0.0.1.yaml: installing the initial version (v0.0.1) of the demo-operator
-- 03_clusterextension-v0.0.2-broken.yaml: installing the upgraded version (v0.0.2) of the demo-operator, but with the Single/OwnNamespace configuration still in-place
-- 04_clusterextension-v0.0.2-fixed.yaml: installing the upgraded version (v0.0.2) of the demo-operator, with corrected AllNamespaceMode configuration
+### `catalog/`
 
-## samples
+File-Based Catalog upgrade graph for the demo-operator package, including:
+- Catalog metadata and structure
+- `catalog.Dockerfile` for building the catalog image
 
-Containing samples of resources demonstrating webhook functionality:
-- invalid.yaml: demonstrating that admission is prevented successfully for noncompliant CRs
-- valid.yaml: demonstrating webhook success with compliant CRs
+### `manifests/`
 
+Kubernetes manifests for executing the demo:
 
-## DEMO
-[https://asciinema.org/a/754187](https://asciinema.org/a/754187)
+| File | Description |
+|------|-------------|
+| `00_clustercatalog.yaml` | ClusterCatalog manifest containing the demo-operator package |
+| `01_clusterextension-setup.yaml` | Namespaces, ServiceAccounts, and support resources |
+| `02_clusterextension-v0.0.1.yaml` | Initial installation (v0.0.1) of the demo-operator |
+| `03_clusterextension-v0.0.2-broken.yaml` | Upgrade to v0.0.2 with incorrect Single/OwnNamespace configuration |
+| `04_clusterextension-v0.0.2-fixed.yaml` | Upgrade to v0.0.2 with corrected AllNamespaceMode configuration |
+
+### `samples/`
+
+Sample resources demonstrating webhook functionality:
+
+- `invalid.yaml` - Demonstrates admission prevention for noncompliant CRs
+- `valid.yaml` - Demonstrates webhook success with compliant CRs
+
+### Scripts
+
+- **`setup.sh`** - Sets up the local environment (kind cluster, registry, and OLMv1)
+- **`kubecon-demo-script.sh`** - Main demo script showcasing OLMv1 features
+- **`generate-asciidemo.sh`** - Processes the demo script into an asciicast format
+
+## Prerequisites
+
+Before running the demo, ensure you have the following tools installed:
+
+- [Docker](https://docs.docker.com/get-docker/)
+- [kind](https://kind.sigs.k8s.io/docs/user/quick-start/#installation)
+- [kubectl](https://kubernetes.io/docs/tasks/tools/)
+- [skopeo](https://github.com/containers/skopeo/blob/main/install.md)
+- [krew](https://krew.sigs.k8s.io/docs/user-guide/setup/install/) with the following plugins:
+  - `tree` - Install with: `kubectl krew install tree`
+  - `get-all` - Install with: `kubectl krew install get-all`
+
+## Getting Started
+
+### 1. Environment Setup
+
+Run the setup script to create a local kind cluster with OLMv1 and a local image registry:
+
+```bash
+./setup.sh
+```
+
+This script will:
+- Create a kind cluster named `demo`
+- Install OLMv1 experimental release (v1.6.0)
+- Set up a local Docker registry (`kind-registry:5443`) with TLS certificates
+- Configure containerd to use the local registry
+- Build and push demo operator bundles and catalog images to the local registry
+- Copy required base images to the local registry
+
+### 2. Run the Demo
+
+Once setup is complete, run the demo script:
+
+```bash
+./kubecon-demo-script.sh
+```
+
+You can also follow the manifests manually in order (`00_*.yaml` through `04_*.yaml`) to see the progression of the demo.
+
+## License
+
+See the LICENSE file for details.
