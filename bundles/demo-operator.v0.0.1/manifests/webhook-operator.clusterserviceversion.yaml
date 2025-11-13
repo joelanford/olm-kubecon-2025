@@ -123,7 +123,7 @@ spec:
                       - --webhook-cert-path=/tmp/k8s-webhook-server/serving-certs
                     command:
                       - /manager
-                    image: quay.io/olmtest/webhook-operator:v0.0.5
+                    image: kind-registry:5443/olmtest/webhook-operator:v0.0.5
                     livenessProbe:
                       httpGet:
                         path: /healthz

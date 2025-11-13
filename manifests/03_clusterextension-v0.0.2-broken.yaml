@@ -16,3 +16,7 @@ spec:
     configType: Inline
     inline:
       watchNamespace: demo
+  install:
+    preflight:
+      crdUpgradeSafety:
+        enforcement: None

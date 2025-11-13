@@ -21,7 +21,7 @@
   "schema": "olm.bundle",
   "name": "demo-operator.v0.0.1",
   "package": "demo-operator",
-  "image": "quay.io/olm-kubecon-demo/olm-kubecon2025-demo:bundle-v0.0.1",
+  "image": "kind-registry:5443/olm-kubecon2025-demo:bundle-v0.0.1",
   "properties": [
     {
       "type": "olm.package",
@@ -36,7 +36,7 @@
     "schema": "olm.bundle",
     "name": "demo-operator.v0.0.2",
     "package": "demo-operator",
-    "image": "quay.io/olm-kubecon-demo/olm-kubecon2025-demo:bundle-v0.0.2",
+    "image": "kind-registry:5443/olm-kubecon2025-demo:bundle-v0.0.2",
     "properties": [
         {
             "type": "olm.package",
